@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SANVEL QR 테스트</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="sanvel-qr.js"></script>
+<style>
+  :root {
+    --primary: #1668c8;
+    --line: #d5dae2;
+    --muted: #6b7683;
+    --bg-soft: #eef2f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+    color: #16202b;
+    background: #fff;
+  }
+  header { border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; padding: 16px; font-size: 18px; }
+  .tabs { display: flex; }
+  .tabs button {
+    flex: 1; padding: 12px; border: 0; background: none; cursor: pointer;
+    font-size: 15px; color: var(--muted); border-bottom: 2px solid transparent;
+  }
+  .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 60px; }
+  .page { display: none; }
+  .page.on { display: block; }
+  h2 { font-size: 20px; margin: 0 0 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .field { margin-bottom: 14px; }
+  input[type=text] {
+    width: 100%; padding: 12px; font-size: 16px;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  .seg { display: flex; gap: 8px; }
+  .seg button {
+    flex: 1; padding: 12px; font-size: 15px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  }
+  .seg button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  button.primary {
+    width: 100%; padding: 15px; font-size: 16px; font-weight: 700; cursor: pointer;
+    border: 0; border-radius: 8px; background: var(--primary); color: #fff;
+  }
+  .switch { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+  .banner {
+    display: flex; gap: 12px; align-items: center;
+    padding: 14px; border-radius: 10px; background: var(--bg-soft);
+  }
+  .banner.active { background: #d7e7fb; }
+  .banner .icon { font-size: 24px; }
+  .banner .title { font-weight: 700; }
+  .banner .sub { font-size: 12px; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+  .countdown {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+    background: #d9f2e0; font-weight: 700;
+  }
+  .countdown button {
+    border: 0; background: none; color: var(--primary);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .payload {
+    margin-top: 14px; font-family: ui-monospace, Menlo, monospace;
+    font-size: 12px; text-align: center; word-break: break-all;
+  }
+  #qr { display: flex; justify-content: center; margin-top: 20px; }
+  .err { color: #c0392b; margin-top: 14px; font-size: 14px; }
+  .warn { color: #c0392b; }
+  .result { text-align: center; }
+  .result .mark { font-size: 56px; color: #23a455; }
+  .result h2 { margin: 8px 0 24px; }
+  .rows { text-align: left; border-top: 1px solid var(--line); }
+  .rows div { display: flex; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .rows span:first-child { width: 110px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SANVEL QR 테스트</h1>
+  <nav class="tabs">
+    <button id="tab-gen" class="on">QR 생성</button>
+    <button id="tab-read">검진 시작</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ------------------------------------------------------------- QR 생성 -->
+  <section id="page-gen" class="page on">
+    <div class="field">
+      <label for="g-name">이름</label>
+      <input type="text" id="g-name" value="홍길동">
+    </div>
+    <div class="field">
+      <label>성별</label>
+      <div class="seg" id="g-gender">
+        <button data-v="M" class="on">남 (M)</button>
+        <button data-v="F">여 (F)</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="g-birth">생년월일 (yyyyMMdd)</label>
+      <input type="text" id="g-birth" value="19990101" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label for="g-phone">휴대폰번호 (숫자만)</label>
+      <input type="text" id="g-phone" value="01012345678" inputmode="numeric">
+    </div>
+    <div class="switch">
+      <input type="checkbox" id="g-encoded" checked>
+      <label for="g-encoded" style="margin:0">개인정보 인코딩 (base64url)</label>
+    </div>
+    <p id="g-note" class="sub" style="font-size:13px;color:var(--muted);margin:0"></p>
+    <div id="qr"></div>
+    <p id="g-payload" class="payload"></p>
+  </section>
+
+  <!-- ---------------------------------------------------------- 검진 시작 -->
+  <section id="page-read" class="page">
+    <h2>개인정보 입력</h2>
+
+    <div id="r-banner" class="banner">
+      <span class="icon">▣</span>
+      <div>
+        <div class="title" id="r-banner-title">QR 인증해주세요</div>
+        <div class="sub" id="r-banner-sub">리더기로 스캔하거나 아래에 직접 입력하세요.</div>
+      </div>
+    </div>
+
+    <div id="r-countdown" class="countdown" style="display:none">
+      <span>✓</span>
+      <span style="flex:1" id="r-countdown-text"></span>
+      <button id="r-skip">바로 시작</button>
+      <button id="r-cancel">취소</button>
+    </div>
+
+    <div style="height:24px"></div>
+
+    <div class="field">
+      <label for="r-name">이름</label>
+      <input type="text" id="r-name" placeholder="홍길동">
+    </div>
+    <div class="field">
+      <label>성별</label>
+      <div class="seg" id="r-gender">
+        <button data-v="M">남 (M)</button>
+        <button data-v="F">여 (F)</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="r-birth">생년월일</label>
+      <input type="text" id="r-birth" placeholder="19960207" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label for="r-phone">휴대폰번호</label>
+      <input type="text" id="r-phone" placeholder="01012345678" inputmode="numeric">
+    </div>
+    <button class="primary" id="r-confirm">확인</button>
+    <p id="r-error" class="err" style="display:none"></p>
+  </section>
+
+  <!-- ---------------------------------------------------------- 검진 결과 -->
+  <section id="page-result" class="page result">
+    <div class="mark">✓</div>
+    <h2>인증되었습니다</h2>
+    <div class="rows" id="res-rows"></div>
+    <div style="height:24px"></div>
+    <button class="primary" id="res-back">처음으로</button>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+// ------------------------------------------------------------------ 화면 전환
+
+const $ = id => document.getElementById(id);
+const pages = { gen: $('page-gen'), read: $('page-read'), result: $('page-result') };
+
+function showPage(name) {
+  for (const [k, el] of Object.entries(pages)) el.classList.toggle('on', k === name);
+  $('tab-gen').classList.toggle('on', name === 'gen');
+  $('tab-read').classList.toggle('on', name === 'read');
+}
+
+$('tab-gen').onclick = () => showPage('gen');
+$('tab-read').onclick = () => showPage('read');
+
+/** 성별 선택 버튼 묶음. */
+function segment(containerId, onChange) {
+  const el = $(containerId);
+  el.onclick = e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    for (const b of el.children) b.classList.toggle('on', b === btn);
+    onChange(btn.dataset.v);
+  };
+  return {
+    get value() {
+      const on = el.querySelector('button.on');
+      return on ? on.dataset.v : '';
+    },
+    set value(v) {
+      for (const b of el.children) b.classList.toggle('on', b.dataset.v === v);
+    },
+  };
+}
+
+// ---------------------------------------------------------------- QR 생성
+
+const genGender = segment('g-gender', renderQr);
+let qrView = null;
+
+function renderQr() {
+  const data = {
+    name: $('g-name').value,
+    gender: genGender.value,
+    birth: $('g-birth').value,
+    phone: $('g-phone').value,
+  };
+  const encoded = $('g-encoded').checked;
+  const asciiOnly = [...data.name].every(c => c.charCodeAt(0) < 128);
+
+  const note = $('g-note');
+  if (encoded) {
+    note.className = '';
+    note.textContent = 'B64 형식. 한글 이름도 HID 키보드로 전달됩니다.';
+  } else if (asciiOnly) {
+    note.className = '';
+    note.textContent = '평문 형식.';
+  } else {
+    note.className = 'warn';
+    note.textContent = '평문 형식. 이름에 한글이 있어 HID 키보드로 전달되지 않습니다.';
+  }
+
+  let payload;
+  try {
+    payload = buildQr(data, encoded);
+  } catch (e) {
+    $('qr').innerHTML = '';
+    $('g-payload').className = 'payload err';
+    $('g-payload').textContent = e.message;
+    qrView = null;
+    return;
+  }
+
+  $('g-payload').className = 'payload';
+  $('g-payload').textContent = payload;
+
+  if (!qrView) {
+    $('qr').innerHTML = '';
+    qrView = new QRCode($('qr'), { text: payload, width: 240, height: 240 });
+  } else {
+    qrView.clear();
+    qrView.makeCode(payload);
+  }
+}
+
+for (const id of ['g-name', 'g-birth', 'g-phone']) $(id).oninput = renderQr;
+$('g-encoded').onchange = renderQr;
+renderQr();
+
+// ---------------------------------------------------------------- 검진 시작
+
+const readGender = segment('r-gender', () => {});
+const DELAY_SECONDS = 5;  // 스캔 값이 채워진 화면을 눈으로 확인할 시간
+let countdownTimer = null;
+let scannedSource = '수동 입력';
+
+function showError(msg) {
+  const el = $('r-error');
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg || '';
+}
+
+function setBanner(buffer) {
+  const scanning = buffer.length > 0;
+  $('r-banner').classList.toggle('active', scanning);
+  $('r-banner-title').textContent = scanning ? 'QR 수신 중…' : 'QR 인증해주세요';
+  $('r-banner-sub').textContent =
+    scanning ? buffer : '리더기로 스캔하거나 아래에 직접 입력하세요.';
+}
+
+function cancelCountdown() {
+  clearInterval(countdownTimer);
+  countdownTimer = null;
+  $('r-countdown').style.display = 'none';
+}
+
+function clearForm() {
+  cancelCountdown();
+  for (const id of ['r-name', 'r-birth', 'r-phone']) $(id).value = '';
+  readGender.value = '';
+  scannedSource = '수동 입력';
+  showError('');
+  scanBuffer.clear();
+  setBanner('');
+}
+
+/** 스캔 값을 각 입력란에 채우고, 5초 뒤 검진 시작 화면으로 넘어간다. */
+function fillAndStart(qr) {
+  cancelCountdown();
+  showError('');
+
+  $('r-name').value = qr.name;
+  $('r-birth').value = qr.birth;
+  $('r-phone').value = qr.phone;
+  readGender.value = qr.gender;
+  scannedSource = 'QR 스캔';
+
+  let left = DELAY_SECONDS;
+  const box = $('r-countdown');
+  const text = $('r-countdown-text');
+  box.style.display = 'flex';
+  text.textContent = `QR 인식 완료. ${left}초 후 검진을 시작합니다.`;
+
+  countdownTimer = setInterval(() => {
+    left -= 1;
+    if (left > 0) {
+      text.textContent = `QR 인식 완료. ${left}초 후 검진을 시작합니다.`;
+      return;
+    }
+    cancelCountdown();
+    start(qr, 'QR 스캔');
+  }, 1000);
+}
+
+function start(qr, source) {
+  const rows = [
+    ['입력 경로', source],
+    ['이름', qr.name],
+    ['성별', qr.gender === 'M' ? '남' : qr.gender === 'F' ? '여' : ''],
+    ['생년월일', qr.birth],
+    ['휴대폰번호', qr.phone],
+  ];
+  $('res-rows').innerHTML = rows
+    .map(([k, v]) => `<div><span>${k}</span><span>${v || '-'}</span></div>`)
+    .join('');
+  showPage('result');
+}
+
+$('res-back').onclick = () => {
+  clearForm();
+  showPage('read');
+};
+
+$('r-skip').onclick = () => $('r-confirm').click();
+$('r-cancel').onclick = clearForm;
+
+$('r-confirm').onclick = () => {
+  const wasScan = countdownTimer !== null;
+  cancelCountdown();
+  const phone = $('r-phone').value.replace(/[^0-9]/g, '');
+  if (phone.length !== 11) {
+    showError('휴대폰번호 11자리를 입력해주세요.');
+    return;
+  }
+  start(
+    {
+      name: $('r-name').value,
+      gender: readGender.value,
+      birth: $('r-birth').value,
+      phone,
+    },
+    wasScan ? scannedSource : '수동 입력'
+  );
+};
+
+// 입력란에 포커스가 있으면 키 입력이 그쪽으로 간다.
+// 그 경우에도 QR을 놓치지 않도록 같은 판정을 한 번 더 한다.
+for (const id of ['r-name', 'r-birth', 'r-phone']) {
+  $(id).oninput = e => {
+    const v = e.target.value;
+    if (!v.includes(SUFFIX)) return;
+    const qr = parseQr(v);
+    if (!qr) {
+      showError('SANVEL QR 형식이 아닙니다: ' + v);
+      e.target.value = '';
+      return;
+    }
+    fillAndStart(qr);
+  };
+}
+
+// 스캐너가 보내는 키 입력.
+//
+// 입력란에 포커스가 있어도 여기서 받는다. 한글 입력 상태에서는 IME가 키를
+// 한글로 조합해 버려서 입력란 값(oninput)만으로는 QR을 복원할 수 없기 때문이다.
+// prefix가 맞는 동안에만 키를 삼키므로 수동 입력은 그대로 동작한다.
+const scanBuffer = createScanBuffer();
+
+document.addEventListener('keydown', e => {
+  if (!pages.read.classList.contains('on')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  const ch = keyToChar(e);
+  if (ch === null) return;
+
+  const before = scanBuffer.text;
+  const raw = scanBuffer.add(ch);
+  if (scanBuffer.text !== before || raw) setBanner(scanBuffer.text);
+
+  if (raw) {
+    e.preventDefault();
+    const qr = parseQr(raw);
+    if (!qr) {
+      showError('SANVEL QR 형식이 아닙니다: ' + raw);
+      return;
+    }
+    fillAndStart(qr);
+    return;
+  }
+  // SANVEL QR로 시작하지 않는 입력은 삼키지 않는다.
+  if (scanBuffer.text) e.preventDefault();
+});
+</script>
+</body>
+</html>
